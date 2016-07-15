@@ -14,31 +14,39 @@ import Lib
 
 main :: IO ()
 main = do programs <- getPrograms
-          void . defaultMain ui $ list "programs" (fromList programs) 1
+          void . defaultMain ui $ list ProgramList (fromList programs) 1
 
 
-ui :: App (List String Program) Event [Char]
-ui = App draw showFirstCursor events return attributes id
-    where draw ps = [renderList renderItem True ps]
-          renderItem selected p = if selected
-                                      then withAttr (attrName "selected") text
-                                      else text
-            where text = padRight Max . str $ name p
-          events ps e = case e of
-            (EvKey KEsc [])         -> halt ps
-            (EvKey (KChar 'q') [])  -> halt ps
-            (EvKey (KChar 'r') [])  -> continue =<< reloadProgramList
-            (EvKey KEnter [])       -> continue =<< runSelectedProgram ps
-            otherwise               -> continue =<< handleListEvent e ps
-          attributes = const $ attrMap (green `on` black)
+
+data UIWidgets = ProgramList
+                 deriving (Show, Ord, Eq)
+
+
+ui :: App (List UIWidgets Program) Event UIWidgets
+ui = App renderUI showFirstCursor eventHandler return attributes id
+    where attributes = const $ attrMap (green `on` black)
                                     [ (attrName "selected", black `on` green)
                                     ]
 
-reloadProgramList :: EventM String (List String Program)
-reloadProgramList = do ps <- liftIO getPrograms
-                       return $ list "programs" (fromList ps) 1
+renderUI :: List UIWidgets Program -> [Widget UIWidgets]
+renderUI ps = [renderList renderItem True ps]
+    where renderItem selected p =
+                if selected then withAttr (attrName "selected") text else text
+                where text = padRight Max . str $ name p
 
-runSelectedProgram :: List String Program -> EventM String (List String Program)
+eventHandler :: (List UIWidgets Program) -> Event
+             -> EventM UIWidgets (Next (List UIWidgets Program))
+eventHandler ps (EvKey KEsc [])        = halt ps
+eventHandler ps (EvKey (KChar 'q') []) = halt ps
+eventHandler _  (EvKey (KChar 'r') []) = continue =<< reloadProgramList
+eventHandler ps (EvKey KEnter [])      = continue =<< runSelectedProgram ps
+eventHandler ps e                      = continue =<< handleListEvent e ps
+
+reloadProgramList :: EventM UIWidgets (List UIWidgets Program)
+reloadProgramList = do ps <- liftIO getPrograms
+                       return $ list ProgramList (fromList ps) 1
+
+runSelectedProgram :: List UIWidgets Program -> EventM UIWidgets (List UIWidgets Program)
 runSelectedProgram ps = case mSelected of
         (Just (n, p)) -> (liftIO $ createProcess $ silentShell $ command p) >> return ps
         Nothing       -> return ps
