@@ -2,7 +2,7 @@
 module Lib where
 
 import Data.ConfigFile
-import Control.Monad.Error          (runErrorT, join, liftIO)
+import Control.Monad.Except         (runExceptT, join, liftIO)
 import System.Directory             (getHomeDirectory)
 import System.Exit                  (exitFailure)
 
@@ -14,7 +14,7 @@ data Program = Program { name :: String
 getPrograms :: IO [Program]
 getPrograms = do
         path <- configPath
-        programs <- runErrorT $ do
+        programs <- runExceptT $ do
             cp <- join $ liftIO $ readfile emptyCP path
             mapM (makeProgram cp) $ sections cp
         case programs of
@@ -24,4 +24,3 @@ getPrograms = do
                           return $ homeDir ++ "/.hklaunchrc"
           makeProgram cp sect = do sectionCommand <- get cp sect "command"
                                    return $ Program sect sectionCommand
-

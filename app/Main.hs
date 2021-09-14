@@ -4,7 +4,7 @@ import Brick
 import Brick.Widgets.List           ( list, renderList, List, handleListEvent
                                     , listSelectedElement)
 import Control.Monad                (void)
-import Control.Monad.Error          (liftIO)
+import Control.Monad.Except         (liftIO)
 import Data.Vector                  (fromList)
 import Graphics.Vty.Attributes      (defAttr, green, black)
 import Graphics.Vty.Input.Events    (Event, Key(..), Event(..))
@@ -23,7 +23,7 @@ data UIWidgets = ProgramList
 
 
 ui :: App (List UIWidgets Program) Event UIWidgets
-ui = App renderUI showFirstCursor eventHandler return attributes id
+ui = App renderUI showFirstCursor eventHandler return attributes
     where attributes = const $ attrMap (green `on` black)
                                     [ (attrName "selected", black `on` green)
                                     ]
@@ -34,13 +34,14 @@ renderUI ps = [renderList renderItem True ps]
                 if selected then withAttr (attrName "selected") text else text
                 where text = padRight Max . str $ name p
 
-eventHandler :: (List UIWidgets Program) -> Event
+eventHandler :: (List UIWidgets Program) -> BrickEvent UIWidgets Event
              -> EventM UIWidgets (Next (List UIWidgets Program))
-eventHandler ps (EvKey KEsc [])        = halt ps
-eventHandler ps (EvKey (KChar 'q') []) = halt ps
-eventHandler _  (EvKey (KChar 'r') []) = continue =<< reloadProgramList
-eventHandler ps (EvKey KEnter [])      = continue =<< runSelectedProgram ps
-eventHandler ps e                      = continue =<< handleListEvent e ps
+eventHandler ps (VtyEvent (EvKey KEsc []))        = halt ps
+eventHandler ps (VtyEvent (EvKey (KChar 'q') [])) = halt ps
+eventHandler _  (VtyEvent (EvKey (KChar 'r') [])) = continue =<< reloadProgramList
+eventHandler ps (VtyEvent (EvKey KEnter []))      = continue =<< runSelectedProgram ps
+eventHandler ps (VtyEvent e)                      = continue =<< handleListEvent e ps
+eventHandler ps e                                 = continue ps
 
 reloadProgramList :: EventM UIWidgets (List UIWidgets Program)
 reloadProgramList = do ps <- liftIO getPrograms
